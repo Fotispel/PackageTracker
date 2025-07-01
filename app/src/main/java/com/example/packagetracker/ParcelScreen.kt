@@ -1,29 +1,17 @@
 package com.example.packagetracker
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.material3.Icon
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -34,12 +22,19 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun ParcelScreen() {
     val showAddScreen = remember { mutableStateOf(false) }
+    val parcels by ParcelRepository.parcels.collectAsState()
 
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
         if (showAddScreen.value) {
-            AddParcelDialog(onDismiss = { showAddScreen.value = false })
+            AddParcelDialog(
+                onDismiss = { showAddScreen.value = false },
+                onAdd = { name, trackingNumber, courier ->
+                    ParcelRepository.addParcel(name, trackingNumber, courier)
+                    showAddScreen.value = false
+                }
+            )
         }
 
         Column(
@@ -48,63 +43,59 @@ fun ParcelScreen() {
                 .padding(16.dp),
         ) {
             Text(
-                text = "Parcel Screen",
+                text = "Parcel Tracker",
                 style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.primary
             )
 
-            Spacer(modifier = Modifier.height(26.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            OutlinedCard(
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.White,
-                ),
-                border = BorderStroke(3.dp, MaterialTheme.colorScheme.primary),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(10.dp)  // Keep padding if you want space γύρω από την κάρτα
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(10.dp) // padding μέσα στο Row
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ShoppingCart,
-                        contentDescription = "Parcel Icon",
-                        modifier = Modifier
-                            .size(64.dp)
-                            .padding(12.dp),
-                        tint = MaterialTheme.colorScheme.primary,
+            if (parcels.isEmpty()) {
+                // Εμφάνιση μηνύματος όταν δεν υπάρχουν parcels
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
                     )
-                    Column(
-                        modifier = Modifier.padding(1.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Shoes",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
+                            text = "No parcels added yet.\nTap + to add your first parcel!",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Text(
-                            text = "Status: In Transit",
-                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.primary
+                    }
+                }
+            } else {
+                // LazyColumn για τα parcels
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(parcels) { parcel ->
+                        ParcelCard(
+                            parcel = parcel,
+                            onDelete = { ParcelRepository.removeParcel(parcel.id) },
+                            onRefresh = {
+                                ParcelRepository.trackParcel(parcel.id, parcel.trackingNumber, parcel.courier)
+                            }
                         )
-                        Text(
-                            text = "Courier: DHL",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Text(
-                            text = "Parcel: 123456789",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
+                    }
+
+                    // Προσθήκη κενού χώρου στο τέλος για το floating button
+                    item {
+                        Spacer(modifier = Modifier.height(80.dp))
                     }
                 }
             }
         }
 
-
-
+        // Floating Add Button
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -116,25 +107,124 @@ fun ParcelScreen() {
     }
 }
 
+@Composable
+fun ParcelCard(
+    parcel: Parcel,
+    onDelete: () -> Unit,
+    onRefresh: () -> Unit
+) {
+    OutlinedCard(
+        colors = CardDefaults.cardColors(
+            containerColor = if (parcel.isTracked) Color.White else MaterialTheme.colorScheme.surfaceVariant,
+        ),
+        border = BorderStroke(
+            2.dp,
+            if (parcel.isTracked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            // Header με όνομα και actions
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ShoppingCart,
+                        contentDescription = "Parcel Icon",
+                        modifier = Modifier.size(32.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = parcel.name,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Row {
+                    IconButton(onClick = onRefresh) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Refresh",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Tracking Information
+            InfoRow(label = "Status", value = parcel.status)
+            InfoRow(label = "Courier", value = parcel.courier)
+            InfoRow(label = "Tracking Number", value = parcel.trackingNumber)
+
+            if (parcel.lastUpdated.isNotEmpty() && parcel.lastUpdated != "N/A") {
+                InfoRow(label = "Last Updated", value = parcel.lastUpdated)
+            }
+
+            // Status indicator
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Text(
+                    text = if (parcel.isTracked) "✓ Tracked" else "○ Pending",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (parcel.isTracked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun InfoRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = "$label:",
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+    Spacer(modifier = Modifier.height(4.dp))
+}
 
 @Composable
 fun AddButton(onClick: () -> Unit) {
-    Button(
+    FloatingActionButton(
         onClick = onClick,
         modifier = Modifier.size(64.dp),
-        shape = RoundedCornerShape(30)
+        containerColor = MaterialTheme.colorScheme.primary
     ) {
         Icon(
             imageVector = Icons.Default.Add,
             contentDescription = "Add",
             tint = Color.White,
-            modifier = Modifier
-                .size(24.dp)
-                .graphicsLayer(
-                    scaleX = 1.8f,
-                    scaleY = 1.8f
-                )
+            modifier = Modifier.size(24.dp)
         )
-
     }
 }

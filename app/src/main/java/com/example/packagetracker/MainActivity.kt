@@ -33,16 +33,25 @@ import com.example.packagetracker.ui.theme.PackageTrackerTheme
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
+import android.content.Context
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Load parcels from storage
+        ParcelRepository.loadParcels(this)
         enableEdgeToEdge()
         setContent {
             PackageTrackerTheme {
                 MainScreenContent()
             }
         }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Save parcels to storage
+        ParcelRepository.saveParcels(this)
     }
 }
 
