@@ -1,63 +1,51 @@
 package com.example.packagetracker
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
-
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 
 
 @Composable
-fun AddParcelDialog() {
-    var ParcelCode = -1
+fun AddParcelDialog(onDismiss: () -> Unit) {
+    var parcelCodeText by remember { mutableStateOf("") }
 
     AlertDialog(
-        onDismissRequest = {
-            //close dialog
-
-        },
+        onDismissRequest = { onDismiss() },
         title = {
             Text(text = "Please insert a new parcel")
         },
         text = {
-            TextField(
-                value = "",
-                onValueChange = { ParcelCode = it.toIntOrNull() ?: -1 },
-                label = { Text("Parcel Name") },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Add Parcel"
-                    )
-                }
+            OutlinedTextField(
+                value = parcelCodeText,
+                onValueChange = { parcelCodeText = it },
+                label = { Text("Parcel Code") }
             )
         },
         confirmButton = {
-            TextButton(
-                onClick = {
-                    if (ParcelCode != -1) {
-                        // Handle adding the parcel with ParcelCode
-                        // For example, save it to a database or a list
-                    } else {
-                        // Handle invalid input
-                    }
+            TextButton(onClick = {
+                if (parcelCodeText.isNotBlank()) {
+                    println("Parcel code added: $parcelCodeText")
+                    CourierApiFetch.fetchTrackingInfo(parcelCodeText)
+                    onDismiss()
+                } else {
+                    println("No parcel code provided")
                 }
-            ) {
+            }) {
                 Text("Confirm")
             }
         },
         dismissButton = {
-            TextButton(
-                onClick = {
-                    // Handle dismiss
-                }
-            ) {
+            TextButton(onClick = { onDismiss() }) {
                 Text("Dismiss")
             }
         }
     )
 }
+
+
