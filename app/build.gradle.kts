@@ -47,6 +47,8 @@ android {
 }
 
 dependencies {
+    implementation (libs.google.accompanist.swiperefresh)
+    implementation (libs.material3)
     implementation(libs.okhttp)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.core.ktx)

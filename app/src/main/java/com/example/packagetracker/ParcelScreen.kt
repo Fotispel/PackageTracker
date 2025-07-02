@@ -4,7 +4,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -15,14 +14,38 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.google.accompanist.swiperefresh.SwipeRefresh
+import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+
 
 @Composable
 fun ParcelScreen() {
     val showAddScreen = remember { mutableStateOf(false) }
     val parcels by ParcelRepository.parcels.collectAsState()
+    val isRefreshing = remember { mutableStateOf(false) }
+    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing.value)
+
+    // Pull-to-refresh function
+    val onRefresh: () -> Unit = {
+        isRefreshing.value = true
+        // Refresh all parcels
+        parcels.forEach { parcel ->
+            ParcelRepository.trackParcel(parcel.id, parcel.trackingNumber, parcel.courier)
+        }
+        // Reset refresh state after tracking requests complete
+        // In a real app, you'd want to track when all requests finish
+        CoroutineScope(Dispatchers.Main).launch {
+            delay(2000) // Simulate network delay
+            isRefreshing.value = false
+        }
+    }
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -37,59 +60,75 @@ fun ParcelScreen() {
             )
         }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
+        SwipeRefresh(
+            state = swipeRefreshState,
+            onRefresh = onRefresh,
+            modifier = Modifier.fillMaxSize()
         ) {
-            Text(
-                text = "Parcel Tracker",
-                style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.primary
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+            ) {
+                Text(
+                    text = "Parcel Tracker",
+                    style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary
+                )
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-            if (parcels.isEmpty()) {
-                // Εμφάνιση μηνύματος όταν δεν υπάρχουν parcels
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp),
-                        contentAlignment = Alignment.Center
+                if (parcels.isEmpty()) {
+                    // Empty state message
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
                     ) {
-                        Text(
-                            text = "No parcels added yet.\nTap + to add your first parcel!",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            } else {
-                // LazyColumn για τα parcels
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(parcels) { parcel ->
-                        ParcelCard(
-                            parcel = parcel,
-                            onDelete = { ParcelRepository.removeParcel(parcel.id) },
-                            onRefresh = {
-                                ParcelRepository.trackParcel(parcel.id, parcel.trackingNumber, parcel.courier)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "No parcels added yet.\nTap + to add your first parcel!",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Pull down to refresh when you have parcels",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                )
                             }
-                        )
+                        }
                     }
+                } else {
+                    // LazyColumn for parcels
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(parcels, key = { it.id }) { parcel ->
+                            ParcelCard(
+                                parcel = parcel,
+                                onDelete = { ParcelRepository.removeParcel(parcel.id) },
+                                onRefresh = {
+                                    ParcelRepository.trackParcel(parcel.id, parcel.trackingNumber, parcel.courier)
+                                }
+                            )
+                        }
 
-                    // Προσθήκη κενού χώρου στο τέλος για το floating button
-                    item {
-                        Spacer(modifier = Modifier.height(80.dp))
+                        // Add space at the end for the floating button
+                        item {
+                            Spacer(modifier = Modifier.height(80.dp))
+                        }
                     }
                 }
             }
@@ -106,6 +145,7 @@ fun ParcelScreen() {
         }
     }
 }
+
 
 @Composable
 fun ParcelCard(
