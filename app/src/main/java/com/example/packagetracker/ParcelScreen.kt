@@ -1,6 +1,7 @@
 package com.example.packagetracker
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -155,7 +156,12 @@ fun ParcelCard(
 ) {
     OutlinedCard(
         colors = CardDefaults.cardColors(
-            containerColor = if (parcel.isTracked) Color.White else MaterialTheme.colorScheme.surfaceVariant,
+            //if light theme, use surface color, otherwise use surface variant
+            containerColor = if (isSystemInDarkTheme()) {
+                Color.Black
+            } else {
+                Color.White
+            }
         ),
         border = BorderStroke(
             2.dp,
@@ -166,7 +172,6 @@ fun ParcelCard(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            // Header με όνομα και actions
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
